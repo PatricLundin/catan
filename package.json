@@ -1,0 +1,46 @@
+{
+  "name": "phaser-test",
+  "version": "1.0.0",
+  "private": true,
+  "description": "My wonderful Nuxt.js project",
+  "author": "Patric Lundin",
+  "scripts": {
+    "build": "nuxt build",
+    "lint": "vue-cli-service lint",
+    "dev": "cross-env NODE_ENV=development nodemon server/index.js --watch server",
+    "generate": "nuxt generate",
+    "start": "cross-env NODE_ENV=production node server/index.js",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@nuxtjs/axios": "^5.3.6",
+    "@nuxtjs/dotenv": "^1.4.0",
+    "@nuxtjs/pwa": "^3.0.0-0",
+    "axios": "^0.19.2",
+    "body-parser": "^1.19.0",
+    "consola": "^2.11.3",
+    "cross-env": "^5.2.0",
+    "express": "^4.16.4",
+    "nuxt": "^2.0.0",
+    "phaser": "^3.22.0",
+    "uuid": "^7.0.3",
+    "vue": "^2.6.11"
+  },
+  "devDependencies": {
+    "@nuxtjs/eslint-config": "^2.0.0",
+    "@nuxtjs/eslint-module": "^1.0.0",
+    "@vue/cli-plugin-eslint": "^4.2.3",
+    "@vue/eslint-config-airbnb": "^5.0.2",
+    "@vue/test-utils": "^1.0.0-beta.27",
+    "babel-eslint": "^10.0.1",
+    "babel-jest": "^24.1.0",
+    "babel-preset-airbnb": "^4.4.0",
+    "eslint": "^6.7.2",
+    "eslint-plugin-import": "^2.20.1",
+    "eslint-plugin-nuxt": ">=0.4.2",
+    "eslint-plugin-vue": "^6.1.2",
+    "jest": "^24.1.0",
+    "nodemon": "^1.18.9",
+    "vue-jest": "^4.0.0-0"
+  }
+}
