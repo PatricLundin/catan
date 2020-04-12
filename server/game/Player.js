@@ -1,5 +1,7 @@
+const { v4: uuidv4 } = require('uuid');
 const Road = require('./Road');
 const Building = require('./Building');
+const Game = require('./Game');
 
 const buildingCosts = {
   VILLAGE: {
@@ -19,7 +21,12 @@ const buildingCosts = {
 };
 
 class Player {
+  /**
+   *
+   * @param {Game} game A game object.
+   */
   constructor(game, name, color) {
+    this.id = uuidv4();
     this.game = game;
     this.name = name;
     this.color = color;
@@ -90,39 +97,72 @@ class Player {
     this.cards[to] += 1;
   }
 
-  performAction(id) {
-    this.actions[id]();
+  canBuildVillageOnNode(node) {
+    return this.canBuild('VILLAGE')
+      && !node.building
+      && !node.connections.some(c => c.building)
+      && this.roads.some(r => r.nodes.some(n => n.id === node.id));
+  }
+
+  canBuildCityOnNode(node) {
+    return this.canBuild('CITY')
+      && this.buildings.some(b => b.type === 'VILLAGE' && b.node.id === node.id);
+  }
+
+  canBuildRoadOnConn(connection) {
+    return this.canBuild('ROAD')
+      && !connection[0].roads.some(r => connection[1].roads.map(t => t.id).includes(r.id))
+      && this.roads.some(r => r.nodes.some(n => n.id === connection[0].id || n.id === connection[1].id));
+  }
+
+  canTradeCard(card) {
+    return this.cards[card] >= 4;
+  }
+
+  getStartingActions() {
+    const doNothing = null;
+    const bVillage = this.game.nodes.map(node => ((!node.building && !node.connections.some(c => !!c.building)) ? this.buildingAction(node) : null));
+    const bCity = this.game.nodes.map(() => null);
+    const bRoad = this.game.connections.map(() => null);
+    const trades = Object.keys(this.cards).reduce((arr, card) => {
+      Object.keys(this.cards).filter(c => c !== card).forEach(() => arr.push(null));
+      return arr;
+    }, []);
+    return [doNothing, ...bVillage, ...bCity, ...bRoad, ...trades];
+  }
+
+  getStartingRoad(node) {
+    const doNothing = null;
+    const bVillage = this.game.nodes.map(() => null);
+    const bCity = this.game.nodes.map(() => null);
+    const bRoad = this.game.connections.map(conn => (conn.some(n => n.id === node.id) ? this.roadAction(conn) : null));
+    const trades = Object.keys(this.cards).reduce((arr, card) => {
+      Object.keys(this.cards).filter(c => c !== card).forEach(() => arr.push(null));
+      return arr;
+    }, []);
+    return [doNothing, ...bVillage, ...bCity, ...bRoad, ...trades];
+  }
+
+  getAllActions() {
+    const doNothing = 'STOP';
+    const bVillage = this.game.nodes.map(n => (this.canBuildVillageOnNode(n) ? this.buildingAction(n) : null));
+    const bCity = this.game.nodes.map(n => (this.canBuildCityOnNode(n) ? this.upgradeBuildingAction(n.building) : null));
+    const bRoad = this.game.connections.map(c => (this.canBuildRoadOnConn(c) ? this.roadAction(c) : null));
+    const trades = Object.keys(this.cards).reduce((arr, card) => {
+      Object.keys(this.cards).filter(c => c !== card).forEach(to => (
+        arr.push(this.canTradeCard(card) ? this.tradeAction(card, to) : null)
+      ));
+      return arr;
+    }, []);
+    return [doNothing, ...bVillage, ...bCity, ...bRoad, ...trades];
   }
 
   getActions() {
-    this.actions = [];
-    this.actions.push(() => {});
-    if (this.canBuild('VILLAGE')) {
-      const buildings = this.roads.reduce((arr, road) => {
-        road.nodes.forEach(node => { if (!node.building && !node.connections.some(c => c.building)) arr.push(node); });
-        return arr;
-      }, []).map(n => this.buildingAction(n));
-      this.actions.push(...buildings);
-    }
-    if (this.canBuild('CITY')) {
-      const buildings = this.buildings.filter(b => b.type === 'VILLAGE').map(b => this.upgradeBuildingAction(b));
-      this.actions.push(...buildings);
-    }
-    if (this.canBuild('ROAD')) {
-      const roads = this.roads.reduce((arr, road) => {
-        road.nodes.forEach(node => {
-          node.getFreeConnections().forEach(n => arr.push([node, n]));
-        });
-        return arr;
-      }, []).map(n => this.roadAction(n));
-      this.actions.push(...roads);
-    }
-    const trades = Object.entries(this.cards).reduce((arr, [type, amount]) => {
-      if (amount >= 4) Object.keys(this.cards).filter(c => c !== type).forEach(c => arr.push(this.tradeAction(type, c)));
-      return arr;
-    }, []);
-    this.actions.push(...trades);
-    return [...this.actions.map((a, i) => i)];
+    return this.getAllActions().filter(a => !!a);
+  }
+
+  getPoints() {
+    return this.buildings.reduce((sum, b) => sum + b.points, 0);
   }
 
   toJSON() {
@@ -132,6 +172,7 @@ class Player {
       buildings: this.buildings,
       roads: this.roads,
       cards: this.cards,
+      points: this.getPoints(),
     };
   }
 }

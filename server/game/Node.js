@@ -1,5 +1,8 @@
+const { v4: uuidv4 } = require('uuid');
+
 class Node {
   constructor(x, y) {
+    this.id = uuidv4();
     this.x = x;
     this.y = y;
     this.building = null;

@@ -1,50 +1,51 @@
-const Board = require('./Board');
+const { Board, GRID_TYPES } = require('./Board');
 const Player = require('./Player');
 const Node = require('./Node');
-const Agent = require('./Agent');
+const Agent = require('../agent/Agent');
 
-const names = ['RED', 'BLUE', 'BLACK'];
-const colors = ['0xc94524', '0x2469c9', '0x242120'];
+const MAX_TURNS = 1000;
+const names = ['RED', 'BLUE', 'PINK', 'BLACK'];
+const colors = ['0xc94524', '0x2469c9', '0xf092f0', '0x242120'];
+
+const getScaleZeroToOneFunction = values => {
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  return val => ((val - min) / (max - min)) || 0;
+};
+
+const gaussianNormalization = values => {
+  const mean = values.reduce((s, v) => s + v, 0) / values.length;
+  const variance = values.map(v => (v - mean) ** 2).reduce((s, v) => s + v, 0) / values.length;
+  const stdDev = Math.sqrt(variance);
+  return val => (val - mean) / stdDev;
+};
 
 class Game {
-  constructor(numPlayers) {
+  /**
+   *
+   * @param {Agent[]} agents A game object.
+   */
+  constructor(agents) {
     this.board = new Board();
-    this.players = new Array(numPlayers).fill(0).map((a, idx) => new Player(this, names[idx], colors[idx]));
+    this.players = new Array(agents.length).fill(0).map((a, idx) => new Player(this, names[idx], colors[idx]));
+    agents.forEach((agent, idx) => agent.setPlayer(this.players[idx]));
     this.nodes = this.createNodes();
+    this.nodeDict = this.nodes.reduce((dict, node) => ({ ...dict, [node.id]: node }), {});
+    this.connections = this.indexConnections();
     this.paused = true;
-    this.agents = this.players.map(player => new Agent(player));
+    this.agents = agents;
     this.currentTurn = 0;
     this.timer = null;
     this.diceRoll = null;
     this.finished = false;
     this.log = [];
-
-    this.startGame();
+    this.numTurns = 0;
+    this.turns = [];
   }
 
-  createNodes1() {
-    this.board.tiles.forEach(tile => {
-      ['A', 'B', 'C', 'D', 'E', 'F'].forEach(pos => {
-        if (pos === 'A' && tile.x === 0) {
-          const newNode = new Node(`${tile.x}:${tile.y}:${pos}`);
-          tile.addNode(newNode);
-        } else if (pos === 'B' || pos === 'C') {
-          const newNode = new Node(`${tile.x}:${tile.y}:${pos}`);
-          tile.addNode(newNode);
-        } else if (pos === 'D' && (tile.y === 4 || (tile.y === 2 && tile.x === 4) || (tile.y === 3 && tile.x === 3))) {
-          const newNode = new Node(`${tile.x}:${tile.y}:${pos}`);
-          tile.addNode(newNode);
-        } else if (pos === 'E' && tile.y === 4) {
-          const newNode = new Node(`${tile.x}:${tile.y}:${pos}`);
-          tile.addNode(newNode);
-        } else if (pos === 'F' && tile.x === 0 && tile.y > 1) {
-          const newNode = new Node(`${tile.x}:${tile.y}:${pos}`);
-          tile.addNode(newNode);
-        }
-      });
-    });
-  }
-
+  /**
+   * @returns {Node[]}
+   */
   createNodes() {
     let nodes = [
       [0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0],
@@ -80,6 +81,15 @@ class Game {
     return nodes.reduce((nArr, row) => ([...nArr, ...row.filter(r => !!r)]), []);
   }
 
+  indexConnections() {
+    let connections = Array.from(this.nodes.reduce((set, node) => {
+      node.connections.forEach(c => set.add(`${[node.id, c.id].sort().join(':')}`));
+      return set;
+    }, new Set()));
+    connections = connections.map(c => c.split(':').map(n => this.nodeDict[n]));
+    return connections;
+  }
+
   getTurn() {
     return this.currentTurn;
   }
@@ -104,6 +114,7 @@ class Game {
   }
 
   nextTurn() {
+    this.numTurns += 1;
     this.currentTurn = (this.currentTurn + 1) % this.players.length;
     this.diceRoll = Game.rollDice();
     this.distributeCards();
@@ -112,9 +123,16 @@ class Game {
   playTurn() {
     this.nextTurn();
     this.log = [];
-    this.agents[this.currentTurn].turn();
+    const performedActions = this.agents[this.currentTurn].turn();
+    this.turns.push({
+      player: this.agents[this.currentTurn].player.name,
+      color: this.agents[this.currentTurn].player.color,
+      diceRoll: this.diceRoll,
+      performedActions,
+    });
     if (this.checkWinner()) {
       this.finished = true;
+      this.log.push(`PLAYER ${this.agents[this.currentTurn].player.name} WON IN ${this.numTurns} TURNS`);
       this.endGame();
     }
   }
@@ -124,21 +142,84 @@ class Game {
   }
 
   chooseStartingVillages() {
-    this.agents.forEach(agent => agent.chooseStartingVillage());
+    this.agents.forEach(agent => {
+      const performedActions = agent.chooseStartingVillage();
+      this.turns.push({
+        player: this.agents[this.currentTurn].player.name,
+        color: this.agents[this.currentTurn].player.color,
+        diceRoll: this.diceRoll,
+        performedActions,
+      });
+    });
     this.agents.reverse();
-    this.agents.forEach(agent => agent.chooseStartingVillage());
+    this.agents.forEach(agent => {
+      const performedActions = agent.chooseStartingVillage();
+      this.turns.push({
+        player: this.agents[this.currentTurn].player.name,
+        color: this.agents[this.currentTurn].player.color,
+        diceRoll: this.diceRoll,
+        performedActions,
+      });
+    });
     this.agents.reverse();
   }
 
-  startGame() {
+  run() {
+    const startTime = new Date().getTime();
     this.chooseStartingVillages();
-    this.timer = setInterval(() => {
-      if (!this.paused) this.playTurn();
-    }, 100);
+    while (!this.finished && this.numTurns < MAX_TURNS) {
+      this.playTurn();
+    }
+    if (this.numTurns === MAX_TURNS) this.log.push(`NO WINNER WON IN ${this.numTurns} TURNS`);
+    this.time = new Date().getTime() - startTime;
   }
 
   endGame() {
     clearInterval(this.timer);
+  }
+
+  getState(player) {
+    // board types STONE:0 | WOOD:1 | WHEAT:2 | BRICKS:3 | SHEEP:4 | DESERT:5
+    let boardTypes = this.board.tiles.map(t => GRID_TYPES[t.type]);
+    const boardTypeStandard = gaussianNormalization(boardTypes);
+    boardTypes = boardTypes.map(v => boardTypeStandard(v));
+    // board values
+    let boardValues = this.board.tiles.map(t => t.value || 0);
+    const boardValuesStandard = gaussianNormalization(boardValues);
+    boardValues = boardValues.map(v => boardValuesStandard(v));
+    // buildings on nodes
+    const buildings = this.nodes.map(n => {
+      if (!n.building) return 0;
+      const playerBuilding = n.building.player.id === player.id;
+      const buildingType = n.building.type === 'VILLAGE' ? 0.5 : 1;
+      return playerBuilding ? 0 + buildingType : 0 - buildingType;
+    });
+    // roads on connections
+    const roads = this.connections.map(c => {
+      let road;
+      if (c[0].roads === 0 || c[1].roads === 0) return 0;
+      c[0].roads.some(r0 => {
+        const idx = c[1].roads.findIndex(r => r.id === r0.id);
+        if (idx > -1) {
+          road = c[1].roads[idx];
+          return true;
+        }
+        return false;
+      });
+      if (!road) return 0;
+      const playerRoad = road.player.id === player.id;
+      return playerRoad ? 1 : -1;
+    });
+    let cards = Object.values(player.cards);
+    const cardsStandard = getScaleZeroToOneFunction(cards);
+    cards = cards.map(v => cardsStandard(v));
+    return [
+      ...boardTypes,
+      ...boardValues,
+      ...buildings,
+      ...roads,
+      ...cards,
+    ];
   }
 
   toJSON() {

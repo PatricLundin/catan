@@ -1,7 +1,8 @@
 // const consola = require('consola');
 const Tile = require('./Tile');
 
-const gridTypes = ['STONE', 'WOOD', 'WHEAT', 'BRICKS', 'SHEEP', 'DESERT'];
+// const gridTypes = ['STONE', 'WOOD', 'WHEAT', 'BRICKS', 'SHEEP', 'DESERT'];
+const gridTypes = ['DESERT', 'STONE', 'WOOD', 'WHEAT', 'BRICKS', 'SHEEP'];
 const GRID_TYPES = gridTypes.reduce((o, t, i) => ({ ...o, [t]: i }), {});
 
 class Board {
@@ -32,4 +33,7 @@ class Board {
   }
 }
 
-module.exports = Board;
+module.exports = {
+  Board,
+  GRID_TYPES,
+};

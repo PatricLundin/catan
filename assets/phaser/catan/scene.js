@@ -28,6 +28,8 @@ export default class GameScene extends Scene {
   }
 
   populateBoard() {
+    if (!this.board) return;
+    this.board.forEach(hex => hex.addScene(this));
     this.board.forEach(hex => hex.clearBuildings());
     this.gameData.players.forEach(player => {
       player.roads.forEach(road => {
@@ -41,7 +43,7 @@ export default class GameScene extends Scene {
     this.gameData.players.forEach(player => {
       player.buildings.forEach(building => {
         const hexWithNode = this.board.find(hex => hex.nodes.findIndex(n => n.x === building.node.x && n.y === building.node.y) > -1);
-        hexWithNode.drawBuilding(building.node, player.color);
+        hexWithNode.drawBuilding(building.node, player.color, building.type);
       });
     });
     if (this.gameData.diceRoll) {
@@ -100,6 +102,9 @@ export default class GameScene extends Scene {
         this.gameData = data;
         this.populateBoard();
       }
+    }).catch(err => {
+      console.log(err);
+      this.timer.remove();
     });
   }
 
@@ -132,17 +137,24 @@ export default class GameScene extends Scene {
     this.buttons.push(updateBoardButton);
   }
 
+  switchToReplayScene() {
+    this.scene.start('ReplayScene');
+  }
+
   addButtons() {
     this.buttons = [];
-    this.addButton('New game', () => this.scene.restart());
-    this.addButton('Take turn', () => this.takeTurn());
+    this.addButton('New game', () => {
+      this.scene.restart();
+      this.newGame();
+    });
+    // this.addButton('Take turn', () => this.takeTurn());
+    this.addButton('Replay scene', () => this.switchToReplayScene());
     this.addButton('Refresh', () => this.getBoard());
     this.addButton('Unpause', () => this.togglePause());
   }
 
   create() {
     this.cameras.main.setBackgroundColor('#2e91c9');
-    this.newGame();
     this.addButtons();
     console.log(this);
 
