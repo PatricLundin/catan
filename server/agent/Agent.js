@@ -62,7 +62,7 @@ class Agent {
       performedActions.push({
         state: this.game.getState(this.player),
         action: actionIdx,
-        output: Array.isArray(this.currentPrediction) ? this.currentPrediction.map((p, idx) => `${idx}: ${p}`) : this.currentPrediction,
+        output: this.currentPrediction,
       });
     }
     const action = actions[actionIdx];
@@ -76,7 +76,7 @@ class Agent {
       performedActions.push({
         state: this.game.getState(this.player),
         action: roadActionIdx,
-        output: Array.isArray(this.currentPrediction) ? this.currentPrediction.map((p, idx) => `${idx}: ${p}`) : this.currentPrediction,
+        output: this.currentPrediction,
       });
     }
     const roadAction = roadActions[roadActionIdx];
@@ -109,7 +109,7 @@ class Agent {
         performedActions.push({
           state,
           action: actionIdx,
-          output: Array.isArray(this.currentPrediction) ? this.currentPrediction.map((p, idx) => `${idx}: ${p}`) : this.currentPrediction,
+          output: this.currentPrediction,
         });
       }
       this.steps += 1;

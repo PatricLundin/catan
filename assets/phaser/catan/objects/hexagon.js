@@ -136,6 +136,19 @@ export default class Hexagon extends Phaser.GameObjects.Polygon {
     }
   }
 
+  drawValueOnNode(node, color, value) {
+    const nodeIdx = this.nodes.findIndex(n => n.x === node.x && n.y === node.y);
+    const point = this.points[nodeIdx];
+    const text = this.scene.add.text(
+      point.x + this.cordX - this.width / 2,
+      point.y + this.cordY - this.height / 2,
+      value,
+      { fontFamily: '"Roboto Condensed"', fontSize: '1rem', color },
+    );
+    text.x -= text.width / 2;
+    this.objects.push(text);
+  }
+
   drawRoad(nodes, color) {
     const node0Idx = this.nodes.findIndex(n => n.x === nodes[0].x && n.y === nodes[0].y);
     const node1Idx = this.nodes.findIndex(n => n.x === nodes[1].x && n.y === nodes[1].y);
@@ -151,6 +164,23 @@ export default class Hexagon extends Phaser.GameObjects.Polygon {
     });
     graphics.strokePoints(points, true, true);
     this.objects.push(graphics);
+  }
+
+  drawValueOnRoad(nodes, color, value) {
+    const node0Idx = this.nodes.findIndex(n => n.x === nodes[0].x && n.y === nodes[0].y);
+    const node1Idx = this.nodes.findIndex(n => n.x === nodes[1].x && n.y === nodes[1].y);
+    if (node0Idx === -1 || node1Idx === -1) return;
+    const points = [this.points[node0Idx], this.points[node1Idx]];
+    const pX = points.reduce((sum, p) => p.x + sum, 0) / 2;
+    const pY = points.reduce((sum, p) => p.y + sum, 0) / 2;
+    const text = this.scene.add.text(
+      pX + this.cordX - this.width / 2,
+      pY + this.cordY - this.height / 2,
+      value,
+      { fontFamily: '"Roboto Condensed"', fontSize: '1rem', color },
+    );
+    text.x -= text.width / 2;
+    this.objects.push(text);
   }
 
   clearBuildings() {

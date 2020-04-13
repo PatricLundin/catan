@@ -123,11 +123,13 @@ class Game {
   playTurn() {
     this.nextTurn();
     this.log = [];
+    const cards = JSON.parse(JSON.stringify(this.agents[this.currentTurn].player.cards));
     const performedActions = this.agents[this.currentTurn].turn();
     this.turns.push({
       player: this.agents[this.currentTurn].player.name,
       color: this.agents[this.currentTurn].player.color,
       diceRoll: this.diceRoll,
+      cards,
       performedActions,
     });
     if (this.checkWinner()) {
@@ -148,6 +150,7 @@ class Game {
         player: this.agents[this.currentTurn].player.name,
         color: this.agents[this.currentTurn].player.color,
         diceRoll: this.diceRoll,
+        cards: null,
         performedActions,
       });
     });
@@ -158,6 +161,7 @@ class Game {
         player: this.agents[this.currentTurn].player.name,
         color: this.agents[this.currentTurn].player.color,
         diceRoll: this.diceRoll,
+        cards: null,
         performedActions,
       });
     });
