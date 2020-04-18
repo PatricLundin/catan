@@ -25,6 +25,9 @@ module.exports = {
     'arrow-parens': [1, 'as-needed'],
     'import/no-dynamic-require': 0,
     'global-require': 0,
-    'max-len': ['error', { code: 150, ignoreComments: true }]
+    'max-len': ['error', { code: 150, ignoreComments: true }],
+    'linebreak-style': 0,
+    'no-await-in-loop': 0,
+    'no-loop-func': 0,
   },
 }

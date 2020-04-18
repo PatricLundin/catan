@@ -1,3 +1,5 @@
+const { v4: uuidv4 } = require('uuid');
+// const tf = require('@tensorflow/tfjs-node-gpu');
 const tf = require('@tensorflow/tfjs-node');
 
 const randomAction = actions => {
@@ -20,15 +22,18 @@ const GAMMA = 0.95;
 const LEARNING_RATE = 0.001;
 
 class Agent {
-  constructor(strategy = 'random', model) {
+  constructor(strategy = 'random', trainMode = false, layers = [100], model) {
+    this.id = uuidv4();
     this.strategy = strategy;
     this.memory = [];
     this.eps = INITIAL_EPS;
     this.steps = 0;
     this.lossArr = [];
     this.model = model;
+    this.layers = layers;
     if (!model) this.initStrategy();
     this.currentPrediction = null;
+    this.trainMode = trainMode;
   }
 
   setPlayer(player) {
@@ -58,7 +63,7 @@ class Agent {
     // Choose village
     const actions = this.player.getStartingActions();
     const actionIdx = this.chooseAction(actions);
-    if (this.strategy === 'evaluate' && this.currentPrediction) {
+    if (!this.trainMode && this.strategy === 'evaluate' && this.currentPrediction) {
       performedActions.push({
         state: this.game.getState(this.player),
         action: actionIdx,
@@ -72,7 +77,7 @@ class Agent {
     const node = this.game.nodes[actionIdx - 1];
     const roadActions = this.player.getStartingRoad(node);
     const roadActionIdx = this.chooseAction(roadActions);
-    if (this.strategy === 'evaluate' && this.currentPrediction) {
+    if (!this.trainMode && this.strategy === 'evaluate' && this.currentPrediction) {
       performedActions.push({
         state: this.game.getState(this.player),
         action: roadActionIdx,
@@ -99,12 +104,12 @@ class Agent {
       if (getActionsType(actionIdx) === 'ROAD') reward += 1;
       if (getActionsType(actionIdx) === 'NOTHING' && actions.filter(a => !!a).length > 1) reward -= 1;
       const nextState = this.game.getState(this.player);
-      this.addSample({
-        state,
-        action: actionIdx,
-        reward,
-        nextState,
-      });
+      // this.addSample({
+      //   state,
+      //   action: actionIdx,
+      //   reward,
+      //   nextState,
+      // });
       if (this.strategy === 'evaluate' && this.currentPrediction) {
         performedActions.push({
           state,
@@ -124,11 +129,20 @@ class Agent {
 
       const model = tf.sequential();
       model.add(tf.layers.inputLayer({ inputShape: [169] }));
-      model.add(tf.layers.dense({ units: 100, activation: 'relu' }));
-      model.add(tf.layers.batchNormalization());
-      model.add(tf.layers.dense({ units: 100, activation: 'relu' }));
-      model.add(tf.layers.batchNormalization());
-      model.add(tf.layers.dense({ units: 100, activation: 'relu' }));
+      if (this.layers.length === 1) {
+        model.add(tf.layers.dense({ units: this.layers[0], activation: 'relu' }));
+        model.add(tf.layers.batchNormalization());
+        model.add(tf.layers.dense({ units: this.layers[0], activation: 'relu' }));
+        model.add(tf.layers.batchNormalization());
+        model.add(tf.layers.dense({ units: this.layers[0], activation: 'relu' }));
+      } else {
+        model.add(tf.layers.dense({ units: this.layers[0], activation: 'relu' }));
+        model.add(tf.layers.batchNormalization());
+        model.add(tf.layers.dense({ units: this.layers[1], activation: 'relu' }));
+        model.add(tf.layers.batchNormalization());
+        model.add(tf.layers.dense({ units: this.layers[2], activation: 'relu' }));
+      }
+      // model.add(tf.layers.batchNormalization());
       // model.add(tf.layers.dropout({ rate: 0.25 }));
       model.add(tf.layers.dense({ units: 201, activation: 'sigmoid' }));
       model.compile({ optimizer: this.optimizer, loss: 'meanSquaredError' });
@@ -155,14 +169,14 @@ class Agent {
       predictions = predictions.map(p => p.index);
       predictions.some((idx, i) => {
         if (!actions[idx]) {
-          if (i === 0) {
-            this.addSample({
-              state,
-              action: idx,
-              reward: -0.5,
-              nextState: state,
-            });
-          }
+          // if (i === 0) {
+          //   this.addSample({
+          //     state,
+          //     action: idx,
+          //     reward: -0.5,
+          //     nextState: state,
+          //   });
+          // }
           return false;
         }
         action = idx;
@@ -198,9 +212,22 @@ class Agent {
           x = tx;
           y = ty;
         });
-        this.model.fit(tf.tensor(x), tf.tensor(y), { batchSize, epochs, verbose: 0 })
-          .then(value => {
-            this.lossArr.push(...value.history.loss);
+        x = tf.tensor(x);
+        y = tf.tensor(y);
+        this.model.fit(
+          x,
+          y,
+          {
+            batchSize,
+            epochs,
+            verbose: 0,
+            // callbacks: tf.node.tensorBoard('tmp/fit_logs_1'),
+          },
+        )
+          .then(() => {
+            x.dispose();
+            y.dispose();
+            // this.lossArr.push(...value.history.loss);
             // console.log(this.player.name, ': Loss:', value.history.loss);
             resolve();
           })
@@ -214,6 +241,21 @@ class Agent {
         reject();
       }
     });
+  }
+
+  static getMixedWeights(net1, net2) {
+    const net1Weights = net1.getWeights().map(tensor => tensor.arraySync());
+    const net2Weights = net2.getWeights().map(tensor => tensor.arraySync());
+    return net1Weights.map((layer, layerIdx) => tf.tensor(layer.map((v, vIdx) => {
+      if (Array.isArray(v)) {
+        return v.map((val, valIdx) => {
+          if (Math.random() < 0.015) return Math.random() * 0.1 - 0.05;
+          return (Math.random() > 0.5 ? val : net2Weights[layerIdx][vIdx][valIdx]);
+        });
+      }
+      if (Math.random() < 0.015) return v === 1 ? 0 : 1;
+      return (Math.random() > 0.5 ? v : net2Weights[layerIdx][vIdx]);
+    })));
   }
 }
 

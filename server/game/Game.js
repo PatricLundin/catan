@@ -174,12 +174,30 @@ class Game {
     while (!this.finished && this.numTurns < MAX_TURNS) {
       this.playTurn();
     }
-    if (this.numTurns === MAX_TURNS) this.log.push(`NO WINNER WON IN ${this.numTurns} TURNS`);
+    if (this.numTurns === MAX_TURNS) {
+      this.log.push(`NO WINNER WON IN ${this.numTurns} TURNS`);
+      const scores = this.agents.map(agent => ({ score: agent.player.buildings.reduce((sum, b) => sum + b.points, 0), agent: agent.id }))
+        .sort((a, b) => (a.score > b.score ? -1 : 1));
+      this.winner = scores[0].agent;
+    }
     this.time = new Date().getTime() - startTime;
   }
 
   endGame() {
     clearInterval(this.timer);
+    this.winner = this.agents[this.currentTurn].id;
+  }
+
+  getAvgCitiesPerPlayer() {
+    return this.players.reduce((sum, p) => sum + p.buildings.filter(b => b.type === 'CITY').length, 0) / this.players.length;
+  }
+
+  getAvgVillagesPerPlayer() {
+    return this.players.reduce((sum, p) => sum + p.buildings.filter(b => b.type === 'VILLAGE').length, 0) / this.players.length;
+  }
+
+  getAvgRoadsPerPlayer() {
+    return this.players.reduce((sum, p) => sum + p.roads.length, 0) / this.players.length;
   }
 
   getState(player) {

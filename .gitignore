@@ -91,3 +91,4 @@ sw.*
 
 server/agent/models/*
 server/agent/*.txt
+server/agent/tmp/*

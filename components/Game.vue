@@ -62,7 +62,8 @@ export default {
       logo.setCollideWorldBounds(true);
 
       emitter.startFollow(logo);
-    },x
+    },
+    x,
   },
 };
 </script>

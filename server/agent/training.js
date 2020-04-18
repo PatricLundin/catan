@@ -3,13 +3,12 @@ const path = require('path');
 const Agent = require('./Agent');
 const Game = require('../game/Game');
 
-const numOfAgents = 3;
+const numOfAgents = 1;
 const numGames = 1000;
 const numTrainingOnBatch = 2000;
 const BATCH_SIZE = 100;
 const EPOCHS = 1;
 
-const networkAgents = new Array(numOfAgents).fill(0).map(() => new Agent('evaluate'));
 let trainingData;
 if (fs.existsSync(path.join(__dirname, 'trainingData.txt'))) {
   trainingData = JSON.parse(fs.readFileSync(path.join(__dirname, 'trainingData.txt')));
@@ -40,17 +39,23 @@ if (fs.existsSync(path.join(__dirname, 'trainingData.txt'))) {
 }
 
 console.log(trainingData.length);
-networkAgents.forEach(agent => agent.setMemory(trainingData));
 
 (async () => {
-  console.time('Network training times');
-  for (let i = 0; i < numTrainingOnBatch; i += 1) {
-    // eslint-disable-next-line
-    await Promise.all(networkAgents.map(agent => agent.train(BATCH_SIZE, EPOCHS)));
-    if (i % 50 === 0) console.log(`Progress: ${i}/${numTrainingOnBatch}`);
+  console.time('Network training times all');
+  for (let a = 0; a < numOfAgents; a += 1) {
+    const agent = new Agent('evaluate');
+    agent.setMemory(trainingData);
+    console.time(`Network training time for one agent ${a}`);
+    for (let i = 0; i < numTrainingOnBatch; i += 1) {
+      // eslint-disable-next-line
+      await agent.train(BATCH_SIZE, EPOCHS);
+      if (i % 50 === 0) {
+        console.log(`Progress for ${a + 1}/${numOfAgents} agents: ${i}/${numTrainingOnBatch}`);
+        // console.table(tf.memory());
+      }
+    }
+    await agent.model.save(`file://${__dirname}/models/model4`);
+    console.timeEnd(`Network training time for one agent ${a}`);
   }
-  console.timeEnd('Network training times');
-
-  networkAgents.forEach(agent => console.log(agent.lossArr[agent.lossArr.length - 1]));
-  await Promise.all(networkAgents.map((agent, idx) => agent.model.save(`file://${__dirname}/models/model${idx + 1}`)));
+  console.timeEnd('Network training times all');
 })();
