@@ -8,6 +8,11 @@ class Node {
     this.building = null;
     this.roads = [];
     this.connections = [];
+    this.index = null;
+  }
+
+  setIndex(idx) {
+    this.index = idx;
   }
 
   addConnection(node) {
@@ -30,6 +35,7 @@ class Node {
     return {
       x: this.x,
       y: this.y,
+      idx: this.index,
       connections: this.connections.map(n => ({ x: n.x, y: n.y })),
     };
   }

@@ -1,14 +1,6 @@
 import { Scene } from 'phaser';
 import axios from 'axios';
-import Hexagon from './objects/hexagon';
-
-// const getActionsType = idx => {
-//   if (idx === 0) return 'NOTHING';
-//   if (idx > 0 && idx < 55) return 'VILLAGE';
-//   if (idx >= 55 && idx < 109) return 'CITY';
-//   if (idx >= 109 && idx < 181) return 'ROAD';
-//   return 'TRADE';
-// };
+import Hexagon from '../objects/hexagon';
 
 const valTogridType = {
   0: 'DESERT',
@@ -116,34 +108,6 @@ const roadToNodes = [
   [{ x: 7, y: 5 }, { x: 8, y: 5 }],
 ];
 
-const valToGridValue = {
-  '-1.96': null,
-  '-1.37': 2,
-  '-1.08': 3,
-  '-0.78': 4,
-  '-0.48': 5,
-  '-0.19': 6,
-  0.41: 8,
-  0.7: 9,
-  1: 10,
-  1.29: 11,
-  1.59: 12,
-};
-
-const nodeValToBuilding = {
-  '-1': 'OTHER_CITY',
-  '-0.5': 'OTHER_VILLAGE',
-  0: 'EMPTY',
-  0.5: 'PLAYER_VILLAGE',
-  1: 'PLAYER_CITY',
-};
-
-const nodeValToRoad = {
-  '-1': 'OTHER_ROAD',
-  0: 'EMPTY',
-  1: 'PLAYER_ROAD',
-};
-
 const nodeIdxToNodePos = [
   { x: 2, y: 0 }, { x: 3, y: 0 }, { x: 4, y: 0 },
   { x: 5, y: 0 }, { x: 6, y: 0 }, { x: 7, y: 0 },
@@ -222,32 +186,24 @@ const nodeToHex = [
   [18], // 8, 5
 ];
 
-const round = num => Math.round(num * 100) / 100;
-
-const parseBoard = state => {
-  const types = state.slice(0, 19).map(v => valTogridType[round(v)]);
-  const values = state.slice(19, 38).map(v => valToGridValue[round(v)]);
-  const buildings = state.slice(38, 92).map(v => nodeValToBuilding[v])
-    .map((b, idx) => ({
-      x: nodeIdxToNodePos[idx].x,
-      y: nodeIdxToNodePos[idx].y,
-      type: b,
-      hexIds: nodeToHex[idx],
-    }));
-  const roads = state.slice(92, 164).map(v => nodeValToRoad[v])
-    .map((r, idx) => ({
-      nodes: roadToNodes[idx],
-      type: r,
-    }));
-  const cards = state.slice(164, 169).map(v => v);
+const parseBoard = boardData => {
+  const { types, values } = boardData;
   const board = types.map((type, idx) => ({
     x: tileIdxToGrid[idx].x,
     y: tileIdxToGrid[idx].y,
-    type,
+    type: valTogridType[type],
     value: values[idx],
     nodes: [],
   }));
-  buildings.forEach(b => b.hexIds.forEach(id => board[id].nodes.push((({ x: b.x, y: b.y, connections: [] })))));
+
+  const nodes = nodeIdxToNodePos.map((n, idx) => ({
+    x: n.x,
+    y: n.y,
+    type: 'EMPTY',
+    hexIds: nodeToHex[idx],
+  }));
+  nodes.forEach(n => n.hexIds.forEach(id => board[id].nodes.push((({ x: n.x, y: n.y, connections: [] })))));
+
   board.forEach(b => { // Fix node order issue
     const tmp = b.nodes[3];
     // eslint-disable-next-line
@@ -256,42 +212,15 @@ const parseBoard = state => {
     b.nodes[5] = tmp;
   });
   return {
-    buildings,
-    roads,
-    cards,
     board,
+    nodes,
   };
 };
 
-const parseOutput = output => {
-  if (!Array.isArray(output)) {
-    console.log(output);
-  }
-  const doNothing = output.slice(0, 1);
-  const villages = output.slice(1, 55).map((v, idx) => ({ pos: nodeIdxToNodePos[idx], value: v }));
-  const cities = output.slice(55, 109).map((v, idx) => ({ pos: nodeIdxToNodePos[idx], value: v }));
-  const roads = output.slice(109, 181).map((v, idx) => ({ pos: roadToNodes[idx], value: v }));
-  const trades = output.slice(181, 201);
-  console.log({
-    doNothing,
-    villages,
-    cities,
-    roads,
-    trades,
-  });
-  return {
-    doNothing,
-    villages,
-    cities,
-    roads,
-    trades,
-  };
-};
-
-export default class ReplayScene extends Scene {
+export default class ReplayGameScene extends Scene {
   constructor() {
-    super({ key: 'ReplayScene' });
-    this.size = 100;
+    super({ key: 'ReplayGameScene' });
+    this.size = 82;
     this.buttons = [];
     this.dices = [];
     this.cards = [];
@@ -318,64 +247,69 @@ export default class ReplayScene extends Scene {
     this.board.forEach(hex => hex.drawNodes());
   }
 
+  getTurn() {
+    return this.turns[this.currentTurn];
+  }
+
+  drawTurn(turn) {
+    turn.moves.forEach(move => {
+      if (move && move[1] && ['building', 'upgrade'].includes(move[1][1])) {
+        const color = move[2] ? this.players[move[2]].color : this.players[turn.player].color;
+        const type = move[1][1] === 'building' ? 'VILLAGE' : 'CITY';
+        const node = nodeIdxToNodePos[move[1][2]];
+        this.board[nodeToHex[move[1][2]][0]].drawBuilding({ x: node.x, y: node.y }, color, type);
+      } else if (move && move[1] && move[1][1] === 'road') {
+        const color = move[2] ? this.players[move[2]].color : this.players[turn.player].color;
+        const nodes = roadToNodes[move[1][2]];
+        const hexWithNode = this.board.find(hex => (
+          hex.nodes.findIndex(n => n.x === nodes[0].x && n.y === nodes[0].y) > -1
+          && hex.nodes.findIndex(n => n.x === nodes[1].x && n.y === nodes[1].y) > -1
+        ));
+        hexWithNode.drawRoad(nodes, color);
+      }
+    });
+  }
+
   populateBoard() {
     this.board.forEach(hex => hex.clearBuildings());
-    const parsedData = parseBoard(this.turns[this.currentTurn].performedActions[this.actionInTurn].state);
-    console.log(parsedData);
-    parsedData.roads.forEach(r => {
-      if (r.type !== 'EMPTY') {
-        const color = r.type === 'PLAYER_ROAD' ? this.turns[this.currentTurn].color : '0x000000';
-        const hexWithNode = this.board.find(hex => (
-          hex.nodes.findIndex(n => n.x === r.nodes[0].x && n.y === r.nodes[0].y) > -1
-          && hex.nodes.findIndex(n => n.x === r.nodes[1].x && n.y === r.nodes[1].y) > -1
-        ));
-        hexWithNode.drawRoad(r.nodes, color);
-      }
+    // const parsedData = parseBoard(this.turns[this.currentTurn].performedActions[this.actionInTurn].state);
+    // console.log(parsedData);
+    // parsedData.roads.forEach(r => {
+    //   if (r.type !== 'EMPTY') {
+    //     const color = r.type === 'PLAYER_ROAD' ? this.turns[this.currentTurn].color : '0x000000';
+    //     const hexWithNode = this.board.find(hex => (
+    //       hex.nodes.findIndex(n => n.x === r.nodes[0].x && n.y === r.nodes[0].y) > -1
+    //       && hex.nodes.findIndex(n => n.x === r.nodes[1].x && n.y === r.nodes[1].y) > -1
+    //     ));
+    //     hexWithNode.drawRoad(r.nodes, color);
+    //   }
+    // });
+    // parsedData.buildings.forEach(b => {
+    //   if (b.type !== 'EMPTY') {
+    //     const color = b.type === 'PLAYER_VILLAGE' || b.type === 'PLAYER_CITY' ? this.turns[this.currentTurn].color : '0x000000';
+    //     const type = b.type === 'PLAYER_VILLAGE' || b.type === 'OTHER_VILLAGE' ? 'VILLAGE' : 'CITY';
+    //     this.board[b.hexIds[0]].drawBuilding({ x: b.x, y: b.y }, color, type);
+    //   }
+    // });
+    console.log(this.getTurn());
+    this.turns.slice(0, this.currentTurn + 1).forEach(turn => {
+      this.drawTurn(turn);
     });
-    parsedData.buildings.forEach(b => {
-      if (b.type !== 'EMPTY') {
-        const color = b.type === 'PLAYER_VILLAGE' || b.type === 'PLAYER_CITY' ? this.turns[this.currentTurn].color : '0x000000';
-        const type = b.type === 'PLAYER_VILLAGE' || b.type === 'OTHER_VILLAGE' ? 'VILLAGE' : 'CITY';
-        this.board[b.hexIds[0]].drawBuilding({ x: b.x, y: b.y }, color, type);
-      }
-    });
-    const { diceRoll, cards } = this.turns[this.currentTurn];
+    // moves.forEach(move => {
+    //   if (move && move[1] && move[1][1]) console.log(move[1][1]);
+    // });
+    const { dice_roll: diceRoll } = this.turns[this.currentTurn];
     if (diceRoll) {
       this.dices.forEach(dice => dice.destroy());
       this.dices = [];
-      this.drawDice(diceRoll.dice1);
-      this.drawDice(diceRoll.dice2);
+      this.drawDice(diceRoll[0]);
+      this.drawDice(diceRoll[1]);
       this.drawDice('=');
-      this.drawDice(diceRoll.total);
+      this.drawDice(diceRoll[2]);
+      this.board.forEach(tile => tile.highlightValue(diceRoll[2]));
     }
-    if (cards) this.drawCards(cards);
-    const output = parseOutput(this.turns[this.currentTurn].performedActions[this.actionInTurn].output);
-    if (output && this.showOutput) {
-      console.log(output);
-      const showNhighestValues = 10;
-      // const showNlowestValues = 10;
-      const highestValueThreshold = [...this.turns[this.currentTurn].performedActions[this.actionInTurn].output]
-        .sort((a, b) => b - a)[showNhighestValues - 1];
-      // const lowestValueThreshold = [...this.turns[this.currentTurn].performedActions[this.actionInTurn].output]
-      //   .sort()[showNlowestValues - 1];
-      const lowestValueThreshold = -1;
-      output.villages.forEach((village, idx) => {
-        if (village.value > highestValueThreshold || village.value < lowestValueThreshold) {
-          this.board[nodeToHex[idx][0]].drawValueOnNode(village.pos, 'black', village.value);
-        }
-      });
-      output.cities.forEach((city, idx) => {
-        if (city.value > highestValueThreshold || city.value < lowestValueThreshold) {
-          this.board[nodeToHex[idx][0]].drawValueOnNode(city.pos, '#7734eb', city.value);
-        }
-      });
-      output.roads.forEach(road => {
-        if (road.value > highestValueThreshold || road.value < lowestValueThreshold) {
-          this.board.forEach(hex => hex.drawValueOnRoad(road.pos, '#524110', road.value));
-        }
-      });
-    }
-    this.board.forEach(hex => hex.drawNodes());
+    // if (cards) this.drawCards(cards);
+    // this.board.forEach(hex => hex.drawNodes());
     // this.board.forEach(hex => hex.drawConnections());
   }
 
@@ -412,14 +346,17 @@ export default class ReplayScene extends Scene {
   }
 
   getGameData() {
-    axios.get('/api/game/getGameData').then(({ data }) => {
+    axios.get('http://localhost:5000/game').then(({ data }) => {
       if (data) {
-        this.turns = data;
+        this.turns = data.turns;
+        this.players = data.players.reduce((o, p) => ({ ...o, [p.name]: p }), {});
         this.currentTurn = 0;
         this.actionInTurn = 0;
-        const { board } = parseBoard(this.turns[this.currentTurn].performedActions[0].state);
+        const { board, nodes } = parseBoard(data.board);
+        console.log({ board, nodes, players: this.players });
         this.boardData = board;
         this.initiateBoard();
+        this.populateBoard();
       }
     }).catch(err => {
       console.log(err);
@@ -431,9 +368,9 @@ export default class ReplayScene extends Scene {
     if (this.currentTurn < this.turns.length - 1) {
       this.currentTurn += 1;
       this.actionInTurn = 0;
-      this.prevActionButton.setVisible(false);
-      this.nextActionButton.setVisible(this.turns[this.currentTurn].performedActions.length !== 1);
-      this.currentTurnText.setText(`Turn ${this.currentTurn + 1}/${this.turns.length}`);
+      // this.prevActionButton.setVisible(false);
+      // this.nextActionButton.setVisible(this.turns[this.currentTurn].performedActions.length !== 1);
+      this.currentTurnText.setText(`Turn ${this.currentTurn}/${this.turns.length - 1}`);
       this.populateBoard();
     }
   }
@@ -442,7 +379,7 @@ export default class ReplayScene extends Scene {
     if (this.currentTurn > 0) {
       this.currentTurn -= 1;
       this.actionInTurn = 0;
-      this.currentTurnText.setText(`Turn ${this.currentTurn + 1}/${this.turns.length}`);
+      this.currentTurnText.setText(`Turn ${this.currentTurn}/${this.turns.length - 1}`);
       this.populateBoard();
     }
   }
@@ -464,8 +401,8 @@ export default class ReplayScene extends Scene {
   nextActionInTurn() {
     if (this.actionInTurn < this.turns[this.currentTurn].performedActions.length - 1) {
       this.actionInTurn += 1;
-      this.nextActionButton.setVisible(this.turns[this.currentTurn].performedActions.length !== this.actionInTurn + 1);
-      this.prevActionButton.setVisible(true);
+      // this.nextActionButton.setVisible(this.turns[this.currentTurn].performedActions.length !== this.actionInTurn + 1);
+      // this.prevActionButton.setVisible(true);
       this.currentActionInTurnText.setText(`Action ${this.actionInTurn + 1}/${this.turns[this.currentTurn].performedActions.length}`);
       this.populateBoard();
     }
@@ -474,8 +411,8 @@ export default class ReplayScene extends Scene {
   previousActionInTurn() {
     if (this.actionInTurn > 0) {
       this.actionInTurn -= 1;
-      this.nextActionButton.setVisible(true);
-      this.prevActionButton.setVisible(this.actionInTurn !== 0);
+      // this.nextActionButton.setVisible(true);
+      // this.prevActionButton.setVisible(this.actionInTurn !== 0);
       this.currentActionInTurnText.setText(`Action ${this.actionInTurn + 1}/${this.turns[this.currentTurn].performedActions.length}`);
       this.populateBoard();
     }
@@ -508,19 +445,20 @@ export default class ReplayScene extends Scene {
     this.addButton('Last turn', () => this.lastTurn());
     this.addButton('Next turn', () => this.nextTurn());
     this.addButton('Prev turn', () => this.previousTurn());
-    this.nextActionButton = this.addButton('Next Action', () => this.nextActionInTurn());
-    this.prevActionButton = this.addButton('Prev Action', () => this.previousActionInTurn());
-    this.addButton('Toggle Output', () => this.toggleOutput());
+    // this.nextActionButton = this.addButton('Next Action', () => this.nextActionInTurn());
+    // this.prevActionButton = this.addButton('Prev Action', () => this.previousActionInTurn());
+    // this.addButton('Toggle Output', () => this.toggleOutput());
   }
 
   addVisuals() {
-    this.currentTurnText = this.add.text(375, 10, `Turn ${this.currentTurn + 1}/${this.turns.length}`, { fill: '#000' });
+    console.log({ turn: this.turns });
+    this.currentTurnText = this.add.text(375, 10, `Turn ${this.currentTurn}/${this.turns.length - 1}`, { fill: '#000' });
     this.currentTurnText.setBackgroundColor('#8ecaed');
     this.graphics.push(this.currentTurnText);
-    this.currentActionInTurnText = this.add.text(560, 10,
-      `Action ${this.actionInTurn + 1}/${this.turns[this.currentTurn].performedActions.length}`, { fill: '#000' });
-    this.currentActionInTurnText.setBackgroundColor('#8ecaed');
-    this.graphics.push(this.currentActionInTurnText);
+    // this.currentActionInTurnText = this.add.text(560, 10,
+    //   `Action ${this.actionInTurn + 1}/${this.turns[this.currentTurn].performedActions.length}`, { fill: '#000' });
+    // this.currentActionInTurnText.setBackgroundColor('#8ecaed');
+    // this.graphics.push(this.currentActionInTurnText);
   }
 
   create() {

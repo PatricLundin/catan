@@ -41,6 +41,12 @@ class Game {
     this.log = [];
     this.numTurns = 0;
     this.turns = [];
+
+    this.nodes.forEach((n, idx) => n.setIndex(idx));
+
+    this.nodes.forEach(n => {
+      console.log(n);
+    });
   }
 
   /**

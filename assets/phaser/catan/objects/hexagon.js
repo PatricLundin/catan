@@ -25,8 +25,8 @@ export default class Hexagon extends Phaser.GameObjects.Polygon {
     const offSets = [1.5, 1, 0.5, 1, 1.5]; // offsets per row
     const width = Math.sqrt(3) * size; // hexagon width
     const height = 2 * size; // hexagon height
-    const cordX = width * x + offSets[y] * width + width * 0.5; // X position in game world
-    const cordY = height * y * 0.75 + height * 0.75; // Y positionn in game world
+    const cordX = width * x + offSets[y] * width + width * 0.5 + 100; // X position in game world
+    const cordY = height * y * 0.75 + height * 0.75 + 100; // Y positionn in game world
     const points = [ // All points to draw hexagon
       { x: 0, y: height / 4 },
       { x: width / 2, y: 0 },
@@ -36,6 +36,7 @@ export default class Hexagon extends Phaser.GameObjects.Polygon {
       { x: 0, y: height * 0.75 },
     ];
     super(scene, cordX, cordY, points, fillColor);
+    this.value = value;
     this.scene = scene;
     this.points = points;
     this.strokeColor = 'RED';
@@ -52,7 +53,7 @@ export default class Hexagon extends Phaser.GameObjects.Polygon {
     this.addInteractions();
     scene.add.existing(this);
     this.drawBorder();
-    if (type !== 'DESERT') this.addValueBadge(value);
+    if (type !== 'DESERT') this.addValueBadge();
     // this.addCornerPoints();
     this.on('pointerdown', () => {
       this.shwoingNodeInfo = !this.shwoingNodeInfo;
@@ -187,7 +188,7 @@ export default class Hexagon extends Phaser.GameObjects.Polygon {
     this.objects.forEach(o => o.destroy());
   }
 
-  addValueBadge(value) {
+  addValueBadge() {
     const graphics = this.scene.add.graphics({
       x: this.cordX,
       y: this.cordY,
@@ -198,14 +199,23 @@ export default class Hexagon extends Phaser.GameObjects.Polygon {
     });
     graphics.fillCircle(0, 0, 25);
 
-    const text = this.scene.add.text(
+    this.valueText = this.scene.add.text(
       this.cordX,
       this.cordY,
-      value,
+      this.value,
       { fontFamily: '"Roboto Condensed"', fontSize: '2rem' },
     );
-    text.x -= text.width / 2;
-    text.y -= text.height / 2;
+    this.valueText.x -= this.valueText.width / 2;
+    this.valueText.y -= this.valueText.height / 2;
+  }
+
+  highlightValue(value) {
+    if (!this.valueText) return;
+    if (this.value === value) {
+      this.valueText.setStyle({ color: 'red' });
+    } else {
+      this.valueText.setStyle({ color: 'white' });
+    }
   }
 
   addCornerPoints() {

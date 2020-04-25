@@ -12,8 +12,9 @@ exports.newGame = async (req, res) => {
     const { players } = req.body;
     if (!agents) {
       agents = await Promise.all(new Array(players).fill(0).map(async (v, idx) => {
-        const model = await tf.loadLayersModel(`file://${__dirname}/../agent/models/competitors_1700/model${idx}/model.json`);
-        return new Agent('evaluate', false, [100], model);
+        // const model = await tf.loadLayersModel(`file://${__dirname}/../agent/models/model${idx}/model.json`);
+        // return new Agent('evaluate', false, [100], model);
+        return new Agent();
       }));
     }
     game = new Game(agents);

@@ -63,7 +63,8 @@ class Agent {
     // Choose village
     const actions = this.player.getStartingActions();
     const actionIdx = this.chooseAction(actions);
-    if (!this.trainMode && this.strategy === 'evaluate' && this.currentPrediction) {
+    // if (!this.trainMode && this.strategy === 'evaluate' && this.currentPrediction) {
+    if (!this.trainMode && this.currentPrediction) {
       performedActions.push({
         state: this.game.getState(this.player),
         action: actionIdx,
@@ -77,7 +78,8 @@ class Agent {
     const node = this.game.nodes[actionIdx - 1];
     const roadActions = this.player.getStartingRoad(node);
     const roadActionIdx = this.chooseAction(roadActions);
-    if (!this.trainMode && this.strategy === 'evaluate' && this.currentPrediction) {
+    // if (!this.trainMode && this.strategy === 'evaluate' && this.currentPrediction) {
+    if (!this.trainMode && this.currentPrediction) {
       performedActions.push({
         state: this.game.getState(this.player),
         action: roadActionIdx,
@@ -110,7 +112,8 @@ class Agent {
       //   reward,
       //   nextState,
       // });
-      if (this.strategy === 'evaluate' && this.currentPrediction) {
+      // if (this.strategy === 'evaluate' && this.currentPrediction) {
+      if (this.currentPrediction) {
         performedActions.push({
           state,
           action: actionIdx,
