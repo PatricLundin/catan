@@ -1,4 +1,6 @@
 import Phaser from 'phaser';
+import Village from './village';
+import City from './city';
 
 const typesToColor = {
   STONE: Phaser.Display.Color.GetColor32(126, 142, 168, 1),
@@ -40,6 +42,7 @@ export default class Hexagon extends Phaser.GameObjects.Polygon {
     this.scene = scene;
     this.points = points;
     this.strokeColor = 'RED';
+    this.size = size;
     this.cordX = cordX;
     this.cordY = cordY;
     this.type = type;
@@ -131,9 +134,9 @@ export default class Hexagon extends Phaser.GameObjects.Polygon {
     const nodeIdx = this.nodes.findIndex(n => n.x === node.x && n.y === node.y);
     const point = this.points[nodeIdx];
     if (type === 'VILLAGE') {
-      this.addVillage(point.x + this.cordX - this.width / 2, point.y + this.cordY - this.height / 2, color);
+      this.addVillage(point.x + this.cordX - this.width / 2, point.y + this.cordY - this.height / 2, color, nodeIdx);
     } else {
-      this.addCity(point.x + this.cordX - this.width / 2, point.y + this.cordY - this.height / 2, color);
+      this.addCity(point.x + this.cordX - this.width / 2, point.y + this.cordY - this.height / 2, color, nodeIdx);
     }
   }
 
@@ -185,7 +188,14 @@ export default class Hexagon extends Phaser.GameObjects.Polygon {
   }
 
   clearBuildings() {
-    this.objects.forEach(o => o.destroy());
+    this.objects.forEach(o => {
+      try {
+        o.removeFromScene();
+      } catch (e) {
+        o.destroy();
+      }
+    });
+    this.objects = [];
   }
 
   addValueBadge() {
@@ -241,56 +251,14 @@ export default class Hexagon extends Phaser.GameObjects.Polygon {
     });
   }
 
-  addVillage(x, y, color) {
-    const size = 20;
-    const points = [
-      { x: 0, y: 0.5 * size },
-      { x: 0.5 * size, y: 0 },
-      { x: size, y: 0.5 * size },
-      { x: 1.5 * size, y: 0 },
-      { x: 2 * size, y: 0.5 * size },
-      { x: 2 * size, y: 1.5 * size },
-      { x: 0, y: 1.5 * size },
-    ];
-    const poly = this.scene.add.polygon(x, y, points, color);
-    this.objects.push(poly);
-    const graphics = this.scene.add.graphics({
-      x: x - poly.width / 2,
-      y: y - poly.height / 2,
-      lineStyle: {
-        width: 1,
-        color: '0xffffff',
-        alpha: 1,
-      },
-    });
-    graphics.strokePoints(points, true, true);
-    this.objects.push(graphics);
+  addVillage(x, y, color, nodeIdx) {
+    this.objects.push(new Village(this.scene, this.size / 5, x, y, this.nodes[nodeIdx], color));
   }
 
-  addCity(x, y, color) {
-    const size = 50;
-    const points = [
-      { x: 0, y: size / 4 },
-      { x: size / 2, y: 0 },
-      { x: size, y: size / 4 },
-      { x: size, y: size * 0.75 },
-      { x: size / 2, y: size },
-      { x: 0, y: size * 0.75 },
-    ];
-    const poly = this.scene.add.polygon(x, y, points, color);
-    this.objects.push(poly);
-    const graphics = this.scene.add.graphics({
-      x: x - poly.width / 2,
-      y: y - poly.height / 2,
-      lineStyle: {
-        width: 1,
-        color: '0xffffff',
-        alpha: 1,
-      },
-    });
-    graphics.strokePoints(points, true, true);
-    this.objects.push(graphics);
+  addCity(x, y, color, nodeIdx) {
+    const village = this.objects.find(o => o instanceof Village
+      && o.node.x === this.nodes[nodeIdx].x && o.node.y === this.nodes[nodeIdx].y);
+    village.removeFromScene();
+    this.objects.push(new City(this.scene, this.size / 2, x, y, this.nodes[nodeIdx], color));
   }
-
-  // preUpdate(time, delta) {}
 }

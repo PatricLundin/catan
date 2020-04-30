@@ -291,7 +291,8 @@ export default class ReplayGameScene extends Scene {
     //     this.board[b.hexIds[0]].drawBuilding({ x: b.x, y: b.y }, color, type);
     //   }
     // });
-    console.log(this.getTurn());
+    // console.log(this.getTurn());
+    // console.log(this);
     this.turns.slice(0, this.currentTurn + 1).forEach(turn => {
       this.drawTurn(turn);
     });
