@@ -187,7 +187,7 @@ const nodeToHex = [
 ];
 
 const parseBoard = boardData => {
-  const { types, values } = boardData;
+  const { types, values, harbors } = boardData;
   const board = types.map((type, idx) => ({
     x: tileIdxToGrid[idx].x,
     y: tileIdxToGrid[idx].y,
@@ -200,9 +200,15 @@ const parseBoard = boardData => {
     x: n.x,
     y: n.y,
     type: 'EMPTY',
+    harbor: harbors[idx],
     hexIds: nodeToHex[idx],
   }));
-  nodes.forEach(n => n.hexIds.forEach(id => board[id].nodes.push((({ x: n.x, y: n.y, connections: [] })))));
+  nodes.forEach(n => n.hexIds.forEach(id => board[id].nodes.push((({
+    x: n.x,
+    y: n.y,
+    harbor: n.harbor,
+    connections: [],
+  })))));
 
   board.forEach(b => { // Fix node order issue
     const tmp = b.nodes[3];
@@ -211,6 +217,7 @@ const parseBoard = boardData => {
     // eslint-disable-next-line
     b.nodes[5] = tmp;
   });
+
   return {
     board,
     nodes,

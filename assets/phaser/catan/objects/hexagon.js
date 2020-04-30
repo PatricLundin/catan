@@ -11,6 +11,15 @@ const typesToColor = {
   DESERT: Phaser.Display.Color.GetColor32(245, 235, 201, 1),
 };
 
+const harborToColor = {
+  'HARBOR_TYPES.THREE_TO_ONE': typesToColor.DESERT,
+  'HARBOR_TYPES.STONE': typesToColor.STONE,
+  'HARBOR_TYPES.WOOD': typesToColor.WOOD,
+  'HARBOR_TYPES.WHEAT': typesToColor.WHEAT,
+  'HARBOR_TYPES.BRICKS': typesToColor.BRICKS,
+  'HARBOR_TYPES.SHEEP': typesToColor.SHEEP,
+};
+
 const getColor = type => (
   typesToColor[type]
   || Phaser.Display.Color.GetColor32(
@@ -56,6 +65,7 @@ export default class Hexagon extends Phaser.GameObjects.Polygon {
     this.addInteractions();
     scene.add.existing(this);
     this.drawBorder();
+    this.drawHarbors();
     if (type !== 'DESERT') this.addValueBadge();
     // this.addCornerPoints();
     this.on('pointerdown', () => {
@@ -128,6 +138,53 @@ export default class Hexagon extends Phaser.GameObjects.Polygon {
         graphics.strokePoints(points, true, true);
       }
     }));
+  }
+
+  drawHarbors() {
+    const harborNodes = this.nodes.filter((n1, i1) => n1.harbor && this.nodes.some((n2, i2) => (
+      i1 !== i2
+      && n1.harbor === n2.harbor
+      && (
+        (n1.x === n2.x && Math.abs(n1.y - n2.y) === 1)
+        || (n1.y === n2.y && Math.abs(n1.x - n2.x) === 1)
+      )
+    )));
+    if (harborNodes.length === 2) this.drawHarbor(harborNodes);
+  }
+
+  drawHarbor(nodes) {
+    const points = nodes.map(node => {
+      const nodeIdx = this.nodes.findIndex(n => n.x === node.x && n.y === node.y);
+      const point = this.points[nodeIdx];
+      const x = point.x + this.cordX - this.width / 2;
+      const y = point.y + this.cordY - this.height / 2;
+      return { x, y };
+    });
+    const xCenter = points.reduce((s, p) => s + p.x, 0) / 2;
+    const yCenter = points.reduce((s, p) => s + p.y, 0) / 2;
+    const harborX = xCenter + (xCenter - this.x) / 1.5;
+    const harborY = yCenter + (yCenter - this.y) / 1.5;
+
+    const graphics = this.scene.add.graphics({
+      x: harborX,
+      y: harborY,
+      fillStyle: {
+        color: harborToColor[nodes[0].harbor],
+        alpha: 1,
+      },
+      lineStyle: {
+        width: 3,
+        color: '0x000000',
+        alpha: 1,
+      },
+    });
+    points.forEach(point => {
+      graphics.strokePoints([
+        { x: 0, y: 0 },
+        { x: point.x - harborX, y: point.y - harborY },
+      ], true, true);
+    });
+    graphics.fillCircle(0, 0, 15);
   }
 
   drawBuilding(node, color, type) {
