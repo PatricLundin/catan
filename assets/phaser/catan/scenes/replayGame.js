@@ -1,5 +1,6 @@
 import { Scene } from 'phaser';
 import axios from 'axios';
+import io from 'socket.io-client';
 import Hexagon from '../objects/hexagon';
 
 const valTogridType = {
@@ -227,7 +228,8 @@ const parseBoard = boardData => {
 export default class ReplayGameScene extends Scene {
   constructor() {
     super({ key: 'ReplayGameScene' });
-    this.size = 82;
+    this.socket = io('http://localhost:5000');
+    this.size = 70;
     this.buttons = [];
     this.dices = [];
     this.cards = [];
@@ -235,6 +237,9 @@ export default class ReplayGameScene extends Scene {
     this.actionInTurn = 0;
     this.graphics = [];
     this.showOutput = false;
+
+    // Socket events
+    this.socket.on('game_response', g => this.initGame(g));
   }
 
   initiateBoard() {
@@ -252,6 +257,16 @@ export default class ReplayGameScene extends Scene {
     ));
     this.addVisuals();
     this.board.forEach(hex => hex.drawNodes());
+  }
+
+  clearBoard() {
+    if (this.board) {
+      this.board.forEach(hex => {
+        hex.clearBuildings();
+        hex.clearBoard();
+        hex.destroy();
+      });
+    }
   }
 
   getTurn() {
@@ -353,6 +368,19 @@ export default class ReplayGameScene extends Scene {
     });
   }
 
+  initGame(game) {
+    this.clearBoard();
+    this.turns = game.turns;
+    this.players = game.players.reduce((o, p) => ({ ...o, [p.name]: p }), {});
+    this.currentTurn = 0;
+    this.actionInTurn = 0;
+    const { board, nodes } = parseBoard(game.board);
+    console.log({ board, nodes, players: this.players });
+    this.boardData = board;
+    this.initiateBoard();
+    this.populateBoard();
+  }
+
   getGameData() {
     axios.get('http://localhost:5000/game').then(({ data }) => {
       if (data) {
@@ -448,7 +476,7 @@ export default class ReplayGameScene extends Scene {
   addButtons() {
     this.buttons = [];
     this.addButton('Game scene', () => this.switchToGameScene());
-    this.addButton('Load game', () => this.getGameData());
+    this.addButton('Load game', () => this.socket.emit('new_game'));
     this.addButton('First turn', () => this.firstTurn());
     this.addButton('Last turn', () => this.lastTurn());
     this.addButton('Next turn', () => this.nextTurn());
@@ -473,6 +501,6 @@ export default class ReplayGameScene extends Scene {
     this.cameras.main.setBackgroundColor('#2e91c9');
     this.addButtons();
     console.log(this);
-    this.getGameData();
+    // this.getGameData();
   }
 }

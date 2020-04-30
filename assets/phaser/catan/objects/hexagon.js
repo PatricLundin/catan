@@ -54,11 +54,12 @@ export default class Hexagon extends Phaser.GameObjects.Polygon {
     this.size = size;
     this.cordX = cordX;
     this.cordY = cordY;
-    this.type = type;
+    this.resourceType = type;
     this.xPos = x;
     this.yPos = y;
     this.nodes = nodes;
     this.objects = [];
+    this.boardObjects = [];
     this.nodeInfo = [];
     this.shwoingNodeInfo = false;
 
@@ -101,6 +102,7 @@ export default class Hexagon extends Phaser.GameObjects.Polygon {
       },
     });
     graphics.strokePoints(this.points, true, true);
+    this.boardObjects.push(graphics);
   }
 
   drawNodes() {
@@ -184,7 +186,10 @@ export default class Hexagon extends Phaser.GameObjects.Polygon {
         { x: point.x - harborX, y: point.y - harborY },
       ], true, true);
     });
-    graphics.fillCircle(0, 0, 15);
+    const circle = new Phaser.Geom.Circle(0, 0, this.size / 6);
+    graphics.fillCircleShape(circle);
+    graphics.strokeCircleShape(circle);
+    this.boardObjects.push(graphics);
   }
 
   drawBuilding(node, color, type) {
@@ -218,7 +223,7 @@ export default class Hexagon extends Phaser.GameObjects.Polygon {
       x: this.cordX - this.width / 2,
       y: this.cordY - this.height / 2,
       lineStyle: {
-        width: 8,
+        width: this.size / 10,
         color,
         alpha: 1,
       },
@@ -244,6 +249,10 @@ export default class Hexagon extends Phaser.GameObjects.Polygon {
     this.objects.push(text);
   }
 
+  clearBoard() {
+    this.boardObjects.forEach(o => o.destroy());
+  }
+
   clearBuildings() {
     this.objects.forEach(o => {
       try {
@@ -264,16 +273,18 @@ export default class Hexagon extends Phaser.GameObjects.Polygon {
         alpha: 1,
       },
     });
-    graphics.fillCircle(0, 0, 25);
+    graphics.fillCircle(0, 0, this.size / 3);
 
     this.valueText = this.scene.add.text(
       this.cordX,
       this.cordY,
       this.value,
-      { fontFamily: '"Roboto Condensed"', fontSize: '2rem' },
+      { fontFamily: '"Roboto Condensed"', fontSize: `${this.size / 3}px` },
     );
     this.valueText.x -= this.valueText.width / 2;
     this.valueText.y -= this.valueText.height / 2;
+    this.boardObjects.push(this.valueText);
+    this.boardObjects.push(graphics);
   }
 
   highlightValue(value) {
