@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import ReplayGameScene from './scenes/replayGame';
+import GameScene from './scenes/gameScene';
+// import ReplayGameScene from './scenes/replayGame';
 // import GameScene from './scene';
 // import ReplayScene from './replayScene';
 import event from './event';
@@ -23,7 +24,7 @@ function launch({
         debug: true,
       },
     },
-    scene: [ReplayGameScene],
+    scene: [GameScene],
   });
 
   // replace the EventEmitter on the DataManager with our own imported EventEmitter

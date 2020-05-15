@@ -68,6 +68,7 @@ export default class Hexagon extends Phaser.GameObjects.Polygon {
     this.drawBorder();
     this.drawHarbors();
     if (type !== 'DESERT') this.addValueBadge();
+    // this.drawNodes();
     // this.addCornerPoints();
     this.on('pointerdown', () => {
       this.shwoingNodeInfo = !this.shwoingNodeInfo;
@@ -176,7 +177,7 @@ export default class Hexagon extends Phaser.GameObjects.Polygon {
       },
       lineStyle: {
         width: 3,
-        color: '0x000000',
+        color: '0xffffff',
         alpha: 1,
       },
     });
@@ -186,10 +187,22 @@ export default class Hexagon extends Phaser.GameObjects.Polygon {
         { x: point.x - harborX, y: point.y - harborY },
       ], true, true);
     });
-    const circle = new Phaser.Geom.Circle(0, 0, this.size / 6);
+    const circle = new Phaser.Geom.Circle(0, 0, this.size / 4);
     graphics.fillCircleShape(circle);
     graphics.strokeCircleShape(circle);
     this.boardObjects.push(graphics);
+
+    if (nodes[0].harbor === 'HARBOR_TYPES.THREE_TO_ONE') {
+      const text = this.scene.add.text(
+        harborX,
+        harborY,
+        '  ? \n3:1',
+        { fontFamily: '"Roboto Condensed"', fontSize: '1rem', color: '0x000000' },
+      );
+      text.x -= text.width / 2;
+      text.y -= text.height / 2;
+      this.boardObjects.push(text);
+    }
   }
 
   drawBuilding(node, color, type) {
@@ -223,7 +236,7 @@ export default class Hexagon extends Phaser.GameObjects.Polygon {
       x: this.cordX - this.width / 2,
       y: this.cordY - this.height / 2,
       lineStyle: {
-        width: this.size / 10,
+        width: this.size / 8,
         color,
         alpha: 1,
       },
@@ -265,6 +278,8 @@ export default class Hexagon extends Phaser.GameObjects.Polygon {
   }
 
   addValueBadge() {
+    const valToPoints = [0, 0, 1, 2, 3, 4, 5, 0, 5, 4, 3, 2, 1];
+
     const graphics = this.scene.add.graphics({
       x: this.cordX,
       y: this.cordY,
@@ -282,7 +297,17 @@ export default class Hexagon extends Phaser.GameObjects.Polygon {
       { fontFamily: '"Roboto Condensed"', fontSize: `${this.size / 3}px` },
     );
     this.valueText.x -= this.valueText.width / 2;
-    this.valueText.y -= this.valueText.height / 2;
+    this.valueText.y -= this.valueText.height / 1.5;
+
+    const valDots = this.scene.add.text(
+      this.cordX,
+      this.cordY,
+      `${new Array(valToPoints[(parseInt(this.value, 10))]).fill('.').reduce((s, d) => s + d, '')}`,
+      { fontFamily: '"Roboto Condensed"', fontSize: `${this.size / 3}px` },
+    );
+    valDots.x -= valDots.width / 2;
+    valDots.y -= valDots.height / 3.5;
+    this.boardObjects.push(valDots);
     this.boardObjects.push(this.valueText);
     this.boardObjects.push(graphics);
   }
@@ -320,7 +345,7 @@ export default class Hexagon extends Phaser.GameObjects.Polygon {
   }
 
   addVillage(x, y, color, nodeIdx) {
-    this.objects.push(new Village(this.scene, this.size / 5, x, y, this.nodes[nodeIdx], color));
+    this.objects.push(new Village(this.scene, this.size / 4, x, y, this.nodes[nodeIdx], color));
   }
 
   addCity(x, y, color, nodeIdx) {

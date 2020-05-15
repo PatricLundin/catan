@@ -2,6 +2,12 @@ import { Scene } from 'phaser';
 import axios from 'axios';
 import io from 'socket.io-client';
 import Hexagon from '../objects/hexagon';
+import dice1 from '../images/Dices-1.png';
+import dice2 from '../images/Dices-2.png';
+import dice3 from '../images/Dices-3.png';
+import dice4 from '../images/Dices-4.png';
+import dice5 from '../images/Dices-5.png';
+import dice6 from '../images/Dices-6.png';
 
 const valTogridType = {
   0: 'DESERT',
@@ -237,9 +243,23 @@ export default class ReplayGameScene extends Scene {
     this.actionInTurn = 0;
     this.graphics = [];
     this.showOutput = false;
+    this.allAactions = null;
 
     // Socket events
-    this.socket.on('game_response', g => this.initGame(g));
+    this.socket.on('completed_game', g => this.initGame(g));
+    this.socket.on('all_actions', actions => {
+      this.allAactions = actions.reduce((dict, a) => ({ ...dict, [a.id]: a }), {});
+      console.log({ allAactions: this.allAactions });
+    });
+  }
+
+  preload() {
+    this.load.image('dice1', dice1);
+    this.load.image('dice2', dice2);
+    this.load.image('dice3', dice3);
+    this.load.image('dice4', dice4);
+    this.load.image('dice5', dice5);
+    this.load.image('dice6', dice6);
   }
 
   initiateBoard() {
@@ -327,8 +347,6 @@ export default class ReplayGameScene extends Scene {
       this.dices = [];
       this.drawDice(diceRoll[0]);
       this.drawDice(diceRoll[1]);
-      this.drawDice('=');
-      this.drawDice(diceRoll[2]);
       this.board.forEach(tile => tile.highlightValue(diceRoll[2]));
     }
     // if (cards) this.drawCards(cards);
@@ -337,25 +355,32 @@ export default class ReplayGameScene extends Scene {
   }
 
   drawDice(val) {
-    const graphics = this.add.graphics({
-      x: 800 + this.dices.length * 20,
-      y: 30,
-      fillStyle: {
-        color: '0xffffff',
-        alpha: 1,
-      },
-      add: true,
-    });
-    graphics.fillRect(0, 0, 30, 30);
-    this.dices.push(graphics);
-    const text = this.add.text(
-      graphics.x,
-      graphics.y,
-      val,
-      { fontFamily: '"Roboto Condensed"', fontSize: '1.6rem', color: '#000' },
+    const dice = this.add.image(
+      (10 * this.size) + this.dices.length * (this.size / 1.5),
+      30,
+      `dice${val}`,
     );
-    text.x += 5;
-    this.dices.push(text);
+    dice.setDisplaySize(this.size / 2, this.size / 2);
+    this.dices.push(dice);
+    // const graphics = this.add.graphics({
+    //   x: 800 + this.dices.length * 20,
+    //   y: 30,
+    //   fillStyle: {
+    //     color: '0xffffff',
+    //     alpha: 1,
+    //   },
+    //   add: true,
+    // });
+    // graphics.fillRect(0, 0, 30, 30);
+    // this.dices.push(graphics);
+    // const text = this.add.text(
+    //   graphics.x,
+    //   graphics.y,
+    //   val,
+    //   { fontFamily: '"Roboto Condensed"', fontSize: '1.6rem', color: '#000' },
+    // );
+    // text.x += 5;
+    // this.dices.push(text);
   }
 
   drawCards(cards) {
@@ -476,7 +501,7 @@ export default class ReplayGameScene extends Scene {
   addButtons() {
     this.buttons = [];
     this.addButton('Game scene', () => this.switchToGameScene());
-    this.addButton('Load game', () => this.socket.emit('new_game'));
+    this.addButton('Load game', () => this.socket.emit('play_test_game'));
     this.addButton('First turn', () => this.firstTurn());
     this.addButton('Last turn', () => this.lastTurn());
     this.addButton('Next turn', () => this.nextTurn());
@@ -501,6 +526,6 @@ export default class ReplayGameScene extends Scene {
     this.cameras.main.setBackgroundColor('#2e91c9');
     this.addButtons();
     console.log(this);
-    // this.getGameData();
+    this.socket.emit('get_all_actions');
   }
 }
